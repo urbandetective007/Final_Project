@@ -38,7 +38,9 @@ def build_regexes(street: str, num: str, letter: str):
     # letter-less addresses must not swallow a following Hebrew letter ("6א")
     if not letter:
         n = rf"(?<![\d\-]){num}(?![\dא-ת])"
-    s = rf"(?<![א-ת]){st}(?![א-ת])"
+    # words are often glued together in the extracted text ("החבצלתבלוי"), so no boundary
+    # after the street; matches followed by a letter are flagged "glued" for verification
+    s = rf"(?<![א-ת]){st}"
     return [("number-street", re.compile(rf"{n}\s+{s}")), ("street-number", re.compile(rf"{s}\s+{n}"))]
 
 
@@ -69,7 +71,7 @@ def main() -> None:
                     nxt = text[m.end(): m.end() + 1]
                     hits.append({
                         "address": addr, "page": n, "order": order,
-                        "glued": bool(re.match(r"[\u05d0-\u05ea]", nxt)),
+                        "glued": bool(re.match(r"[א-ת]", nxt)),
                         "url": f"https://mhb.co.il/magazine2026/{n}/",
                         "snippet": text[max(0, m.start() - CTX): m.end() + CTX].replace("\n", " "),
                     })
