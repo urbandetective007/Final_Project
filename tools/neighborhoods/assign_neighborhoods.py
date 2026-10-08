@@ -4,7 +4,8 @@
 Input:  an .xlsx whose first column holds addresses ("street number"), with or
         without a header row.
 Output: an .xlsx with exactly two columns, רחוב (the original address) and
-        שכונה (one name from the agent's neighborhood registry, or blank).
+        שכונה (one name from the agent's neighborhood registry, or blank),
+        sorted neighborhood by neighborhood in the registry's order.
 
 How each address is decided, first match wins:
   1. data/overrides.json "addresses"  — a fix made by hand for one address.
@@ -319,6 +320,7 @@ def main():
     ws = out.active
     ws.sheet_view.rightToLeft = True
     ws.append(['רחוב', 'שכונה'])
+    results = []
     for i, raw in enumerate(addresses, 1):
         a = clean(raw)
         street = street_of(a)
@@ -361,10 +363,16 @@ def main():
         if hood:
             addr_cache[a] = hood
         stats[how] += 1
-        ws.append([raw, hood])
+        results.append((raw, hood))
         if i % 1000 == 0:
             print(f'  {i}/{len(addresses)}', file=sys.stderr)
     geo_log.close()
+    # The agent scans rows in order, so group them neighborhood by neighborhood, in the
+    # registry's order (nearby neighborhoods are listed together); street order is kept
+    # inside each neighborhood, and addresses without a neighborhood come last.
+    rank = {n: i for i, n in enumerate(names.canon)}
+    for row in sorted(results, key=lambda r: (rank[r[1]], 0) if r[1] in rank else (len(rank), 1 if r[1] else 2)):
+        ws.append(list(row))
     ws.column_dimensions['A'].width = 40
     ws.column_dimensions['B'].width = 25
     out.save(args.output)
