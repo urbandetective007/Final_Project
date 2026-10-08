@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Find directory entries whose address matches an address from the arnona list.
 
-Usage: match_addresses.py PAGES_DIR ADDRESSES (xlsx: first column | txt: one per line) OUT.json
+Usage: match_addresses.py PAGES_DIR ADDRESSES OUT.json
+  ADDRESSES: Adresses.xlsx (row 1 headers, A = address, B = neighborhood) or a txt file, one address per line.
 
 The directory text comes out in jumbled right-to-left order, so entries are not parsed here.
 We only look for "<house number> <street>" (or "<street> <house number>") next to each other
@@ -45,38 +46,47 @@ def build_regexes(street: str, num: str, letter: str):
 
 
 def load_addresses(path: str):
+    """Return [(address, neighborhood)]. xlsx: column A address, column B neighborhood, row 1 headers."""
     p = Path(path)
     if p.suffix == ".xlsx":
         import openpyxl
         ws = openpyxl.load_workbook(p, read_only=True).active
-        vals = [r[0] for r in ws.iter_rows(values_only=True) if r and r[0]]
-    else:
-        vals = [l for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
-    return [str(v).strip() for v in vals]
+        rows = [r for r in ws.iter_rows(min_row=2, values_only=True) if r and r[0]]
+        return [(str(r[0]).strip(), (r[1] if len(r) > 1 and r[1] else "")) for r in rows]
+    return [(l.strip(), "") for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
 def main() -> None:
     pages_dir, addr_path, out = sys.argv[1:4]
     pages = {int(f.stem): f.read_text(encoding="utf-8") for f in Path(pages_dir).glob("*.txt")}
-    hits, skipped = [], 0
-    for addr in dict.fromkeys(load_addresses(addr_path)):
+    addresses = list(dict.fromkeys(load_addresses(addr_path)))
+    # "מלכי" must not match the start of "מלכי ישראל": collect longer street names that extend each street
+    streets = {p[0] for p in (split_address(a) for a, _ in addresses) if p}
+    longer = {s: [l[len(s):] for l in streets if l.startswith(s + " ")] for s in streets}
+    hits, skipped, rejected = [], 0, 0
+    for addr, hood in addresses:
         parts = split_address(addr)
         if not parts:
             skipped += 1
             continue
         regs = build_regexes(*parts)
+        tails = longer.get(parts[0], [])
         for n, text in sorted(pages.items()):
             for order, rx in regs:
                 for m in rx.finditer(text):
+                    if order == "number-street" and any(text.startswith(tl, m.end()) for tl in tails):
+                        rejected += 1
+                        continue
                     nxt = text[m.end(): m.end() + 1]
                     hits.append({
-                        "address": addr, "page": n, "order": order,
+                        "address": addr, "neighborhood": hood, "page": n, "order": order,
                         "glued": bool(re.match(r"[א-ת]", nxt)),
                         "url": f"https://mhb.co.il/magazine2026/{n}/",
                         "snippet": text[max(0, m.start() - CTX): m.end() + CTX].replace("\n", " "),
                     })
     Path(out).write_text(json.dumps(hits, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"{len(hits)} candidate matches, {skipped} addresses without a house number skipped")
+    print(f"{len(hits)} candidate matches, {rejected} rejected as part of a longer street name, "
+          f"{skipped} addresses without a house number skipped")
 
 
 if __name__ == "__main__":
