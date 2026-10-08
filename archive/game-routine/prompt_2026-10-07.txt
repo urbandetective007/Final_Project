@@ -1,0 +1,136 @@
+Can you find for me in the internet is there a business in the address? i forgot what was the name of one specifc.
+in the repo i managed to list addresses (all in jeruslame only, no need to search in other cities), i need you to run the SKILL business-address-lookup for each addresse and stop when you found 100 bussiness that match OR when you used 30,000 tokens, when reached stop the search and procced to rest of the task.
+start the search with row matching the index number (index is updated in the repo)
+be sure to update the index in the repo where you stopped, push the updated index directly to main branch.
+create a draft mail with a summery of the findings and attach the output Excel to my Gmail: urbandetective007@gmail.com
+
+Start with this setup:
+## SETUP
+
+# Install dependencies
+pip install openpyxl pandas requests -q
+
+# Navigate to repo
+cd /home/user/Game || exit 1
+
+# Initialize git repo if needed
+git init 2>/dev/null || true
+git remote get-url origin > /dev/null 2>&1 || \
+  git remote add origin https://github.com/urbandetective007/Final_Project.git
+
+# Configure git
+git config user.email "urbandetective007@gmail.com" 2>/dev/null || true
+git config user.name "Arnona Agent" 2>/dev/null || true
+
+# Extract skill file
+python3 -c "import zipfile; zipfile.ZipFile('./business-address-lookup.skill').extractall('/tmp/skill')" 2>/dev/null || true
+
+# Download canonical Jerusalem neighborhoods list (source of truth lives in the Arnona_Agent repo)
+curl -s -o ./jerusalem_neighborhoods.json https://raw.githubusercontent.com/urbandetective007/Arnona_Agent/main/data/jerusalem_neighborhoods.json
+
+## STEP 0 — check if the Tavily MCP available
+Check if there enough tokens or credits in the account. if all used stop and only send the draft mail explaining that the Tvily monthly usage is up. di not try to use websearch exc...
+
+## STEP 1 — Read current index
+CURRENT_INDEX=$(cat ./index | grep -oP '(?<=index = )\d+' || echo "0")
+echo "Starting from index: $CURRENT_INDEX"
+
+## STEP 2 — Load addresses
+python3 << 'PYSCRIPT'
+import openpyxl
+wb = openpyxl.load_workbook('./Adresses.xlsx')
+ws = wb.active
+CURRENT_INDEX = int(open('./index').read().split('=')[1].strip())
+rows = [row for row in ws.iter_rows(min_row=2, values_only=True) if row[0]]   # row 1 = headers (רחוב, שכונה)
+addresses = [r[0] for r in rows]
+neighborhood_of = {r[0]: ((r[1] if len(r) > 1 else '') or '') for r in rows}   # neighborhood per address (column B)
+if CURRENT_INDEX >= len(addresses):
+    CURRENT_INDEX = 0
+NEXT_ADDRESS = addresses[CURRENT_INDEX]
+print(f"Total addresses: {len(addresses)}")
+print(f"Next address to scan (row {CURRENT_INDEX + 1}): {NEXT_ADDRESS}")
+PYSCRIPT
+
+# [RUN YOUR SCANNING LOGIC HERE]
+# [GENERATE EXCEL REPORT, PERFORM SEARCHES, ETC]
+
+## STEP 3 — Update index and push
+NEXT_INDEX=$((CURRENT_INDEX + 1))
+echo "index = ${NEXT_INDEX}" > index
+
+git checkout main 2>/dev/null || git branch -M main
+git add index
+git commit -m "Update index: ${CURRENT_INDEX} → ${NEXT_INDEX} [scan complete]"
+git push -u origin main
+
+echo "✅ Index updated and pushed: $NEXT_INDEX"
+
+IMPORTANT: in the excel you generat: 1. only have in the first row the name of the column, and in the rest of the rows the business data. generate only excel the folow this instructions.
+
+IMPORTANT: When chaecking addresses check only in sequential order, one by one. Only move to the next address when you fully checked it and you are fully commited to the claim that there isn't a single business operating in that address.
+
+When generating Excel files for the Arnona Agent business investigation system,
+you MUST follow this exact format:
+
+REQUIRED COLUMNS (in this order):
+1. שם העסק (Business Name) - Required
+2. כתובת (Address) - Required
+3. שכונה (Neighborhood) - Required
+   - Start from the neighborhood written for this address in column B of Adresses.xlsx (neighborhood_of[address]).
+   - VERIFY IT ON THE INTERNET — only for addresses where a business was found:
+     * First use the business pages you already extracted (d.co.il, b144, Google Maps, the business site often state the neighborhood).
+     * If they don't say, run up to 2 extra tavily_search queries: "<address>" ירושלים שכונה / "<address>" ירושלים
+     * These verification searches are a SEPARATE step after the address scan — they do NOT count toward
+       the 6 searches of business-address-lookup, and they follow the same one-address-at-a-time rule.
+   - Change the file's neighborhood ONLY if 2 independent sources (or 1 official source: Jerusalem municipality / gov.il)
+     explicitly give a different neighborhood for this EXACT address (street + house number), not just for the street.
+     Conflicting or vague sources → keep the file's value.
+   - The final value MUST be copied EXACTLY from the "neighborhoods" list in ./jerusalem_neighborhoods.json.
+     If a source spells it differently, translate to the list's name. Never write two names or "/".
+   - Leave BLANK only if the file has no neighborhood for this address AND no source gives one clearly.
+   - Never skip or deprioritize an address because of its neighborhood.
+4. סוג עסק (Business Type) - Optional
+5. דירוג אינדיקציה (Rating) - Required, ALWAYS "גבוה"
+6. קישור 1 (Link 1) - Optional
+7. קישור 2 (Link 2) - Optional
+8. קישור 3 (Link 3) - Optional
+
+CRITICAL RULES:
+- Every business MUST have name, address, and rating="גבוה"; שכונה comes from Adresses.xlsx column B, verified as described in column 3
+- שכונה must always be an exact value copied from jerusalem_neighborhoods.json's "neighborhoods" list, or blank — never a free-typed or newly invented name
+- In the Gmail draft summary, list every neighborhood you changed: address, old → new, source URL
+  (do NOT add a column for this — no extra columns allowed)
+- Use EXACT Hebrew headers (no typos or variations)
+- Links must be full URLs (http:// or https://)
+- Save as .xlsx (Excel format)
+- No extra columns allowed
+- Name the excel file in this format: "דוח נכסים לתאריך:" + current date
+
+EXCEL ATTACHMENT TO GMAIL DRAFT — MANDATORY STEPS:
+When attaching the Excel file to the Gmail draft you MUST follow these steps exactly:
+
+1. Save the workbook to disk first:
+   wb.save(filepath)
+
+2. Verify the file is a valid ZIP (xlsx is a ZIP archive):
+   import zipfile
+   with zipfile.ZipFile(filepath, 'r') as z:
+       assert z.testzip() is None, "Excel file is corrupted"
+
+3. Read it back in BINARY mode only:
+   with open(filepath, 'rb') as f:
+       raw_bytes = f.read()
+   assert len(raw_bytes) > 0, "File is empty"
+
+4. Encode to base64:
+   import base64
+   b64 = base64.b64encode(raw_bytes).decode('ascii')
+
+5. Pass to Gmail draft tool with this exact MIME type:
+   content   = b64
+   filename  = "<the xlsx filename>"
+   mimeType  = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+NEVER read the file in text mode ('r').
+NEVER encode from a BytesIO buffer without saving to disk first.
+NEVER reference or upload the Excel file to git — only attach it to the Gmail draft.
