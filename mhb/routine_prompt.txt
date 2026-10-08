@@ -1,0 +1,92 @@
+Verify businesses from the Haredi Guide Jerusalem directory (mhb.co.il) whose address is in our Jerusalem address list.
+The cross-matching is already done: the candidates are in mhb/candidates.json in the repo. Your job is to verify them one by one
+with the skill mhb/SKILL.md, build the Excel report, update index_mhb, and create a Gmail draft.
+
+Stop when you have verified 40 candidates OR used 30,000 tokens, whichever comes first, then continue to the rest of the task.
+
+## SETUP
+
+pip install openpyxl -q
+
+# Repo (clone if this environment does not have it yet)
+if [ -d /home/user/Game/.git ]; then cd /home/user/Game; else git clone https://github.com/urbandetective007/Final_Project.git /home/user/Game && cd /home/user/Game; fi
+git checkout main && git pull origin main --ff-only
+
+git config user.email "urbandetective007@gmail.com"
+git config user.name "Arnona Agent"
+
+# Read the skill — follow it exactly
+cat mhb/SKILL.md
+
+## STEP 0 — check if the Tavily MCP is available
+If Tavily is not available or its monthly usage is used up: verify from the snippet only (the skill allows it when the page cannot be loaded),
+and say so in the draft mail. Do not use any other web search.
+
+## STEP 1 — Read the index and the candidates
+python3 << 'PYSCRIPT'
+import json
+idx = int(open('index_mhb').read().split('=')[1].strip())
+cands = json.load(open('mhb/candidates.json', encoding='utf-8'))
+print(f"Total candidates: {len(cands)} | starting at: {idx}")
+if idx >= len(cands):
+    print("ALL CANDIDATES VERIFIED — nothing to do")
+PYSCRIPT
+
+If all candidates are already verified: do not scan. Only create the draft mail saying the directory list is finished.
+
+## STEP 2 — Verify
+Process candidates in order, starting at the index, ONE AT A TIME, exactly as mhb/SKILL.md says.
+Count every candidate you finished (verified or rejected). Keep a short list of rejected candidates and the reason.
+
+## STEP 3 — Excel report
+Build the Excel with ONLY verified businesses.
+
+REQUIRED COLUMNS (in this order, exact Hebrew headers, row 1 = headers only, then one row per business):
+1. שם העסק
+2. כתובת  — the candidate's "address" exactly
+3. שכונה  — the candidate's "neighborhood" exactly (blank if blank)
+4. סוג עסק
+5. דירוג אינדיקציה — always "גבוה"
+6. קישור 1 — the candidate's "url"
+7. קישור 2
+8. קישור 3
+
+- Links must be full URLs (http:// or https://). No extra columns. Save as .xlsx.
+- Name the file: "דוח נכסים מהמדריך לתאריך:" + current date (DD-MM-YYYY).
+- If no business was verified in this run, still create the file with the header row only.
+
+## STEP 4 — Update index_mhb and push
+NEXT = the index + number of candidates you finished in STEP 2.
+
+echo "index = ${NEXT}" > index_mhb
+git add index_mhb
+git commit -m "mhb: index_mhb ${START} → ${NEXT} [verified ${COUNT} candidates]"
+git push origin main
+
+Push ONLY index_mhb. Never upload the Excel file to git.
+
+## STEP 5 — Gmail draft
+Create a draft to urbandetective007@gmail.com with:
+- how many candidates were verified (from → to index), how many businesses were confirmed, how many rejected (short reasons),
+- the neighborhoods covered in this run,
+- the Excel attached.
+
+EXCEL ATTACHMENT TO GMAIL DRAFT — MANDATORY STEPS:
+1. Save the workbook to disk first: wb.save(filepath)
+2. Verify it is a valid ZIP:
+   import zipfile
+   with zipfile.ZipFile(filepath, 'r') as z:
+       assert z.testzip() is None, "Excel file is corrupted"
+3. Read it back in BINARY mode only:
+   with open(filepath, 'rb') as f:
+       raw_bytes = f.read()
+   assert len(raw_bytes) > 0, "File is empty"
+4. Encode to base64:
+   import base64
+   b64 = base64.b64encode(raw_bytes).decode('ascii')
+5. Pass to the Gmail draft tool:
+   content  = b64
+   filename = "<the xlsx filename>"
+   mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+NEVER read the file in text mode ('r'). NEVER encode from a BytesIO buffer without saving to disk first.

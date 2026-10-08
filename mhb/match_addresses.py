@@ -5,7 +5,7 @@ Usage: match_addresses.py PAGES_DIR ADDRESSES OUT.json
   ADDRESSES: Adresses.xlsx (row 1 headers, A = address, B = neighborhood) or a txt file, one address per line.
 
 The directory text comes out in jumbled right-to-left order, so entries are not parsed here.
-We only look for "<house number> <street>" (or "<street> <house number>") next to each other
+We only look for "<house number> <street>" next to each other
 and return the surrounding text; the agent then reads the snippet and extracts the business
 name, category and phone, and verifies it.
 """
@@ -42,7 +42,9 @@ def build_regexes(street: str, num: str, letter: str):
     # words are often glued together in the extracted text ("החבצלתבלוי"), so no boundary
     # after the street; matches followed by a letter are flagged "glued" for verification
     s = rf"(?<![א-ת]){st}"
-    return [("number-street", re.compile(rf"{n}\s+{s}")), ("street-number", re.compile(rf"{s}\s+{n}"))]
+    # only "<number> <street>": that is how the directory prints addresses. "<street> <number>" matched mostly
+    # city names ("טבריה 6") and people/neighborhood names next to a number ("בית הכרם 9/8 רבי בנימין").
+    return [("number-street", re.compile(rf"{n}\s+{s}"))]
 
 
 def load_addresses(path: str):
@@ -72,6 +74,8 @@ def main() -> None:
         regs = build_regexes(*parts)
         tails = longer.get(parts[0], [])
         for n, text in sorted(pages.items()):
+            if parts[0].split()[0] not in text:  # cheap pre-check before the regex
+                continue
             for order, rx in regs:
                 for m in rx.finditer(text):
                     if order == "number-street" and any(text.startswith(tl, m.end()) for tl in tails):
