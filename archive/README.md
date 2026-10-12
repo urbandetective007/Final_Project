@@ -4,3 +4,4 @@
 - `game-routine/prompt_before_2026-10-07.txt` — the "Game" routine prompt before the neighborhood change (paste it back into the routine to restore).
 - `game-routine/prompt_2026-10-07.txt` — the prompt with the neighborhood column taken from `Adresses.xlsx` column B and verified online.
 - `arnona-pipeline-scan/SKILL.md` — the ADDRESS-FIRST pipeline skill (Arnona_Agent repo), not in use since July 2026. Its routines (`arnona-address-searcher`, `arnona-address-searcher-DEMO`, `arnona-agent-hourly`) are disabled, not deleted.
+- `game-routine/prompt_2026-10-12.txt` — the prompt with the Haredi directory check (mhb.co.il): for each address, after the regular search, verify that address's entries in `mhb/candidates.json` per `mhb/SKILL.md`.
