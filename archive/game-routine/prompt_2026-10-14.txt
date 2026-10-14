@@ -26,7 +26,7 @@ python3 -c "import openpyxl; print('Known businesses:', openpyxl.load_workbook('
 # Download canonical Jerusalem neighborhoods list (source of truth lives in the Arnona_Agent repo)
 curl -s -o ./jerusalem_neighborhoods.json https://raw.githubusercontent.com/urbandetective007/Arnona_Agent/main/data/jerusalem_neighborhoods.json
 ## STEP 0 — check if the Tavily MCP available
-Check if there enough tokens or credits in the account. if all used stop and only send the draft mail explaining that the Tvily monthly usage is up. di not try to use websearch exc...
+Check if there enough tokens or credits in the account. if all used stop and only send the draft mail explaining that the Tvily monthly usage is up. Do NOT try to use WebSearch or any other search tool instead of Tavily.
 ## STEP 1 — Read current index
 CURRENT_INDEX=$(cat ./index | grep -oP '(?<=index = )\d+' || echo "0")
 echo "Starting from index: $CURRENT_INDEX"
