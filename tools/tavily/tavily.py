@@ -2,7 +2,7 @@
 """Tavily דרך API עם כמה מפתחות — עובר אוטומטית למפתח הבא כשהמכסה של מפתח נגמרת.
 
   status                          → כמה קרדיט נשאר בכל מפתח ובסה"כ (קוד יציאה 3 אם כולם גמורים)
-  search "<שאילתה>" [--max-results N] [--depth basic|advanced] [--include-domains a.co.il ...]
+  search "<שאילתה>" [--max-results N] [--depth ...] [--include-domains ...] [--exclude-domains ...] ...
   extract <url> [<url> ...] [--query "<שאילתה>"] → תוכן הדפים (raw_content)
 
 המפתחות נקראים ממשתנה הסביבה TAVILY_API_KEYS (מופרדים בפסיק / רווח / שורה חדשה),
@@ -13,6 +13,9 @@
   429 (יותר מדי בקשות) / 5xx / תקלת רשת → המתנה ונסיון חוזר עם אותו מפתח.
 המפתח שעובד נשמר בקובץ מצב (TAVILY_STATE_FILE, ברירת מחדל ‎/tmp/tavily_keys_state.json),
 כך שהקריאה הבאה באותה ריצה מתחילה ממנו ולא מבזבזת בקשות על מפתחות גמורים.
+
+הפרמטרים וברירות המחדל זהים ל-Connector הרשמי (tavily-mcp): נשלח רק מה שצוין, והשאר לפי ברירת המחדל של Tavily.
+התוכן המחולץ מוחזר במלואו, בלי קיצור.
 
 פלט: JSON ל-stdout, הודעות ל-stderr. קודי יציאה: 0 תקין · 1 שגיאה · 2 אין מפתחות · 3 כל המפתחות גמורים.
 """
@@ -182,22 +185,45 @@ def cmd_status(_args):
         sys.exit(EXIT_ALL_EXHAUSTED)
 
 
+# Same parameters and defaults as the official Tavily MCP connector (tavily-mcp):
+# only what was given is sent, so Tavily's own defaults apply to the rest.
+SEARCH_OPTIONS = ["search_depth", "topic", "time_range", "start_date", "end_date", "max_results",
+                  "include_raw_content", "include_images", "include_domains", "exclude_domains", "country", "exact_match"]
+
+
+def options(args, names):
+    return {n: getattr(args, n) for n in names if getattr(args, n) not in (None, False, [])}
+
+
 def cmd_search(args):
-    body = {"query": args.query, "max_results": args.max_results, "search_depth": args.depth}
-    if args.include_domains:
-        body["include_domains"] = args.include_domains
+    body = {"query": args.query, **options(args, SEARCH_OPTIONS)}
+    if body.get("country"):
+        body["topic"] = "general"          # as the connector does
+    if body.get("start_date") or body.get("end_date"):
+        body.pop("time_range", None)       # as the connector does
     res = call("/search", body)
-    out = [{"title": r.get("title"), "url": r.get("url"), "content": r.get("content")} for r in res.get("results", [])]
-    print(json.dumps({"query": args.query, "results": out}, ensure_ascii=False, indent=2))
+    out = []
+    for r in res.get("results", []):
+        item = {"title": r.get("title"), "url": r.get("url"), "content": r.get("content"), "score": r.get("score")}
+        if r.get("raw_content"):
+            item["raw_content"] = r["raw_content"]
+        out.append(item)
+    result = {"query": args.query, "results": out}
+    if res.get("images"):
+        result["images"] = res["images"]
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 def cmd_extract(args):
-    body = {"urls": args.urls, "extract_depth": args.depth}
-    if args.query:
-        body["query"] = args.query   # Tavily returns only the most relevant chunks — fewer tokens
+    body = {"urls": args.urls, **options(args, ["extract_depth", "format", "include_images", "query"])}
     res = call("/extract", body)
-    out = [{"url": r.get("url"), "raw_content": (r.get("raw_content") or "")[: args.max_chars]} for r in res.get("results", [])]
-    failed = [f.get("url") if isinstance(f, dict) else f for f in res.get("failed_results", [])]
+    out = []
+    for r in res.get("results", []):
+        item = {"url": r.get("url"), "raw_content": r.get("raw_content") or ""}
+        if r.get("images"):
+            item["images"] = r["images"]
+        out.append(item)
+    failed = [f if isinstance(f, dict) else {"url": f} for f in res.get("failed_results", [])]
     print(json.dumps({"results": out, "failed": failed}, ensure_ascii=False, indent=2))
 
 
@@ -207,15 +233,25 @@ def main():
     sub.add_parser("status").set_defaults(func=cmd_status)
     s = sub.add_parser("search")
     s.add_argument("query")
-    s.add_argument("--max-results", type=int, default=10)
-    s.add_argument("--depth", choices=["basic", "advanced"], default="basic")
-    s.add_argument("--include-domains", nargs="+")
+    s.add_argument("--max-results", dest="max_results", type=int, help="5–20 (ברירת מחדל של Tavily: 5)")
+    s.add_argument("--depth", dest="search_depth", choices=["basic", "advanced", "fast", "ultra-fast"])
+    s.add_argument("--topic", choices=["general", "news"])
+    s.add_argument("--time-range", dest="time_range", choices=["day", "week", "month", "year"])
+    s.add_argument("--start-date", dest="start_date", help="YYYY-MM-DD")
+    s.add_argument("--end-date", dest="end_date", help="YYYY-MM-DD")
+    s.add_argument("--include-domains", dest="include_domains", nargs="+")
+    s.add_argument("--exclude-domains", dest="exclude_domains", nargs="+")
+    s.add_argument("--country", help="שם מדינה מלא, למשל israel")
+    s.add_argument("--include-raw-content", dest="include_raw_content", action="store_true")
+    s.add_argument("--include-images", dest="include_images", action="store_true")
+    s.add_argument("--exact-match", dest="exact_match", action="store_true")
     s.set_defaults(func=cmd_search)
     e = sub.add_parser("extract")
     e.add_argument("urls", nargs="+")
     e.add_argument("--query", help="מחזיר רק את קטעי הדף הרלוונטיים לשאילתה")
-    e.add_argument("--depth", choices=["basic", "advanced"], default="basic")
-    e.add_argument("--max-chars", type=int, default=20000, help="קיצור תוכן כל דף (חוסך טוקנים)")
+    e.add_argument("--depth", dest="extract_depth", choices=["basic", "advanced"])
+    e.add_argument("--format", choices=["markdown", "text"])
+    e.add_argument("--include-images", dest="include_images", action="store_true")
     e.set_defaults(func=cmd_extract)
     args = p.parse_args()
     try:

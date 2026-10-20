@@ -32,8 +32,10 @@ python3 tools/tavily/tavily.py status
 Do NOT try to use WebSearch or any other search tool instead of Tavily.
 ## HOW TO SEARCH — Tavily through tools/tavily/tavily.py, NOT the Tavily connector
 The skills (business-address-lookup, mhb/SKILL.md) say tavily_search / tavily_extract. Run them with the script instead (see tools/tavily/README.md):
-  tavily_search(query=...)          → python3 tools/tavily/tavily.py search "<query>" --max-results 10
+  tavily_search(query=...)          → python3 tools/tavily/tavily.py search "<query>"
   tavily_extract(urls=[...], query) → python3 tools/tavily/tavily.py extract <url> [<url> ...] --query "<query>"
+  Every other connector parameter has the same option (e.g. max_results → --max-results, include_domains → --include-domains);
+  see: python3 tools/tavily/tavily.py search -h
 Do NOT call the Tavily connector tools (tavily_search / tavily_extract) directly.
 The script switches to the next key by itself when one runs out — just keep going.
 If a search/extract command exits with code 3, ALL keys are used up in the middle of the run: stop scanning, keep only the addresses

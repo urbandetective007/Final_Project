@@ -15,7 +15,7 @@ TAVILY_API_KEYS=tvly-xxxx,tvly-yyyy
 ## שימוש
 ```bash
 python3 tools/tavily/tavily.py status                       # קרדיט שנשאר בכל מפתח; יציאה 3 = כולם גמורים, 2 = אין מפתחות
-python3 tools/tavily/tavily.py search '"יפו 1" ירושלים עסקים' --max-results 10
+python3 tools/tavily/tavily.py search '"יפו 1" ירושלים עסקים'
 python3 tools/tavily/tavily.py search '"יפו 1"' --include-domains b144.co.il
 python3 tools/tavily/tavily.py extract https://www.b144.co.il/... --query "כתובת טלפון שעות תחום"
 ```
@@ -24,5 +24,9 @@ python3 tools/tavily/tavily.py extract https://www.b144.co.il/... --query "כת�
 |---|---|
 | `tavily_search(query=...)` | `tavily.py search "<query>"` |
 | `tavily_extract(urls=[...], query=...)` | `tavily.py extract <url> ... --query "<query>"` |
+| כל פרמטר אחר (`max_results`, `include_domains`, `exclude_domains`, `time_range`, `country`…) | אותו שם כאופציה: `--max-results`, `--include-domains` … (`search -h`) |
+
+הפרמטרים וברירות המחדל זהים ל-Connector הרשמי (tavily-mcp): נשלח רק מה שצוין, והשאר לפי ברירת המחדל של Tavily
+(למשל 5 תוצאות לחיפוש). תוכן שמחולץ מוחזר במלואו, בלי קיצור.
 
 הפלט JSON. מפתחות לא מודפסים לעולם — רק 4 התווים האחרונים (`…abcd`).
