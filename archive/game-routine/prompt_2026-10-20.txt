@@ -5,8 +5,11 @@ be sure to update the index in the repo where you stopped, push the updated inde
 create a draft mail with a summery of the findings and attach the output Excel to my Gmail: urbandetective007@gmail.com
 Start with this setup:
 ## SETUP
-# Install dependencies
-pip install openpyxl pandas requests -q
+# Install dependencies — into the SAME Python that runs the scripts (plain `pip` may belong to another Python version)
+python3 -m pip --version >/dev/null 2>&1 || python3 -m ensurepip -q
+python3 -m pip install openpyxl pandas requests -q
+python3 -c "import openpyxl, pandas, requests; print('Python OK')"
+# From here on, ALWAYS run Python as `python3` and install packages only with `python3 -m pip` — never plain `pip` and never another python version.
 # Navigate to repo
 cd /home/user/Game || exit 1
 # Initialize git repo if needed
