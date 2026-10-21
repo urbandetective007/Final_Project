@@ -59,6 +59,11 @@ mhb_of = collections.defaultdict(list)   # Haredi directory candidates per addre
 for c in json.load(open('./mhb/candidates.json', encoding='utf-8')):
     mhb_of[c['address']].append(c)
 print(f"Addresses with directory candidates: {len(mhb_of)}")
+import re
+def placeholder_number(address):   # house number that is not a real one: missing, 0, 999, or 1000 and above (9999, 1111, 5555…)
+    m = re.search(r'(\d+)\s*\S?$', str(address).strip())
+    return m is None or int(m.group(1)) in (0, 999) or int(m.group(1)) >= 1000
+print(f"Addresses with a placeholder house number (skipped, no search): {sum(placeholder_number(a) for a in addresses)}")
 if CURRENT_INDEX >= len(addresses):
     CURRENT_INDEX = 0
 NEXT_ADDRESS = addresses[CURRENT_INDEX]
@@ -67,6 +72,8 @@ print(f"Next address to scan (row {CURRENT_INDEX + 1}): {NEXT_ADDRESS}")
 PYSCRIPT
 # [RUN YOUR SCANNING LOGIC HERE]
 # For EACH address, in order:
+#   SKIP FIRST: if placeholder_number(address) is True (no house number, 0, 999, or 1000+), do NOT search it at all —
+#      no Tavily call, no directory check. It counts as done (the index moves past it); list how many were skipped in the summary.
 #   0. choose the search mode (Hebrew / mixed / Arabic) as arabic/SKILL.md says, and write it in the address's ✅ report,
 #   1. run the searches of that mode: Hebrew → business-address-lookup as usual (its 6 searches);
 #      mixed → the 6 Hebrew searches + 2–3 Arabic ones; Arabic → 4–5 Arabic searches + 2 Hebrew ones (arabic/SKILL.md).
@@ -136,6 +143,7 @@ CRITICAL RULES:
 - In the Gmail draft summary, list every neighborhood you changed: address, old → new, source URL
   (do NOT add a column for this — no extra columns allowed)
 - In the Gmail draft summary, also say how many businesses came from the Haredi directory (mhb.co.il) and how many directory candidates were rejected
+- In the Gmail draft summary, say how many addresses were skipped because of a placeholder house number (no number, 0, 999, 1000+)
 - In the Gmail draft summary, add the Arabic search section described at the end of arabic/SKILL.md (addresses per mode, businesses found in Arabic, Arabic businesses left out only because the page had no house number)
 - Use EXACT Hebrew headers (no typos or variations)
 - Links must be full URLs (http:// or https://)
