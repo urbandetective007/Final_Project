@@ -53,8 +53,24 @@ def address_key(address):
     return (" ".join(sorted(words)), numbers[0])
 
 
+ARABIC_STOPWORDS = {"الدكتور", "دكتور", "د", "المحامي", "محامي", "مكتب", "شركة", "القدس", "ال"}
+ARABIC_LETTERS = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ى": "ي", "ة": "ه", "ـ": ""})
+ARABIC_DIACRITICS = re.compile(r"[ً-ْٰ]")
+
+
+def _norm_token(t):
+    """מאחד תעתיקים שונים של אותו שם ערבי: "מוחמד" = "מחמד", "אלחוסייני" = "חוסייני", "أحمد" = "احمد"."""
+    if re.search(r"[؀-ۿ]", t):
+        t = ARABIC_DIACRITICS.sub("", t).translate(ARABIC_LETTERS)
+        return t[2:] if t.startswith("ال") and len(t) > 4 else t
+    if t.startswith("אל") and len(t) >= 5:
+        t = t[2:]
+    return t[0] + re.sub(r"[וי]", "", t[1:]) if len(t) > 2 else t
+
+
 def name_tokens(name):
-    return {t for t in _clean(name) if t not in NAME_STOPWORDS and len(t) > 1}
+    tokens = (t for t in _clean(name) if t not in NAME_STOPWORDS and t not in ARABIC_STOPWORDS and t not in {"אל", "א"})
+    return {_norm_token(t) for t in tokens if len(t) > 1}
 
 
 def names_match(a, b):
