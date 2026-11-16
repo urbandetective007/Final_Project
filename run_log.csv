@@ -1,0 +1,2 @@
+date,start_index,end_index,addresses_scanned,businesses_found,websearch_calls,webfetch_calls,stop_reason
+2026-11-16,193,204,12,0,~57,3,12_addresses_limit
