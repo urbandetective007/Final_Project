@@ -1,0 +1,2 @@
+date,start_index,end_index,addresses_scanned,new_businesses,known_skipped,rejected,search_mode,stop_reason
+17-11-2026,193,204,12,1,2,2,FALLBACK,12_addresses_reached
