@@ -1,4 +1,5 @@
 # Local Excel output files — attached to Gmail draft, not committed to git
 דוח נכסים לתאריך:*.xlsx
+דוח_נכסים_*.xlsx
 __pycache__/
 known_businesses/business_types.txt
