@@ -1,0 +1,2 @@
+date_time,start_index,end_index,addresses_scanned,addresses_skipped_placeholder,addresses_with_new_business,new_businesses,new_high,new_needs_check,known_businesses,rejected_businesses,search_mode,tavily_calls,websearch_webfetch_calls,stop_reason
+2026-11-21 01:31,193,205,12,0,2,2,2,0,4,2,FALLBACK,0,70,12_addresses
